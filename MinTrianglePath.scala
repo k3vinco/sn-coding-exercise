@@ -27,7 +27,10 @@ object MinTrianglePath {
             pathsFromStdIn(Map(line -> 0), lineNumber + 1)
           else {
             val appended = acc.flatMap { case (path, idx) => Map((path :+ line(idx)) -> idx, (path :+ line(idx + 1)) -> (idx + 1))}
-            pathsFromStdIn(appended, lineNumber + 1)
+            val filteredForShortest = appended
+              .groupBy{ case (_, idx) => idx}
+              .map { case (_, pathWithLastNumIdx) => pathWithLastNumIdx.minBy{ case (path, _) => path.sum}}
+            pathsFromStdIn(filteredForShortest, lineNumber + 1)
           }
         }
       case Left(e) => Left(e)
