@@ -1,62 +1,45 @@
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.io.StdIn.readLine
-
-trait Node
-
-case class Branch(left: Node, right: Node, value: Int) extends Node
-
-case class Leaf(value: Int) extends Node
 
 object MinTrianglePath {
 
-  private def readNextLineOfInts(): Option[List[Int]] = {
-    Option(readLine()).map(_.split(" ").map(_.toInt).toList)
+  type Error = String
+
+  private def readNextLineOfInts(): Either[Error, Vector[Int]] = {
+    try {
+      val line = readLine()
+      if (line == null) Right(Vector())
+      else Right(line.split(" ").map(_.toInt).toVector)
+    } catch {
+      case e: NumberFormatException => Left(s"Could not parse into a number: ${e.getMessage}")
+    }
   }
 
-  /**
-   * Reads all non-null lines from standard input
-   *
-   * @param acc The acc
-   * @return Each line of the number triangle. The lines are in reverse order.
-   */
   @tailrec
-  private def readAllLines(acc: List[List[Int]] = Nil): List[List[Int]] = {
+  private def pathsFromStdIn(acc: Map[Vector[Int], Int] = Map.empty, lineNumber: Int = 1): Either[Error, List[List[Int]]] = {
     readNextLineOfInts() match {
-      case Some(line) => readAllLines(line :: acc)
-      case None => acc
-    }
-  }
-
-  private def readInputIntoNode(): Option[Node] = {
-    @tailrec
-    def loop(otherLines: List[List[Int]], currentNodes: List[Node]): Option[Node] = {
-      if (currentNodes.length == (otherLines.head.length + 1)) {
-        val newNodes = otherLines.foldLeft(currentNodes)((acc, ints) => {
-          val zipped = ints.zip(acc.sliding(2))
-          @nowarn("msg=not.*?exhaustive")
-          val result = zipped.map {
-            case (currentVal, left :: right :: Nil) => Branch(left, right, currentVal)
+      case Right(IndexedSeq()) => Right(acc.keys.map(_.toList).toList)
+      case Right(line) =>
+        if (line.length != lineNumber)
+          Left(s"$lineNumber integers expected but ${line.length} found: $line")
+        else {
+          if (lineNumber == 1)
+            pathsFromStdIn(Map(line -> 0), lineNumber + 1)
+          else {
+            val appended = acc.flatMap { case (path, idx) => Map((path :+ line(idx)) -> idx, (path :+ line(idx + 1)) -> (idx + 1))}
+            pathsFromStdIn(appended, lineNumber + 1)
           }
-          result
-        })
-
-        newNodes match {
-          case root :: Nil => Some(root)
-          case _ => loop(otherLines.tail, newNodes)
         }
-      } else None
-    }
-
-    readAllLines() match {
-      case (root :: Nil) :: Nil => Some(Leaf(root))
-      case _ :: Nil => None
-      case Nil => None
-      case head :: tail => loop(tail, head.map(Leaf.apply))
+      case Left(e) => Left(e)
     }
   }
-
 
   def main(args: Array[String]): Unit = {
-    println(readInputIntoNode())
+    pathsFromStdIn() match {
+      case Left(error) => println(error)
+      case Right(paths) =>
+        val shortestPath = paths.minBy(_.sum)
+        println(s"Minimal path is ${shortestPath.mkString(" + ")} = ${shortestPath.sum}")
+    }
   }
 }
